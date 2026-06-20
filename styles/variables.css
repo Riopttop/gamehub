@@ -1,0 +1,94 @@
+/* ============================================================
+   Theme tokens
+   라이트/다크 테마 변수만 모음. 컴포넌트 스타일은 main.css에.
+   ============================================================ */
+
+:root {
+  /* Base */
+  --bg: #FBF7F0;
+  --bg-soft: #F3ECDD;
+  --surface: #FFFFFF;
+  --surface-2: #FAF5EA;
+  --text: #2A2520;
+  --text-muted: #8A847C;
+  --text-faint: #B8B0A4;
+  --border: #ECE5D6;
+  --border-strong: #DDD3BE;
+
+  /* Brand */
+  --primary: #FF6B5B;
+  --primary-hover: #F25949;
+  --primary-soft: #FFE5E0;
+
+  /* Feedback */
+  --error: #E0584A;
+  --error-soft: #FCE5E1;
+
+  /* Genre */
+  --arcade: #E89B2C;       --arcade-soft: #FCEED1;
+  --puzzle: #7B6BE6;       --puzzle-soft: #E7E3FA;
+  --horror: #5E4E7A;       --horror-soft: #DDD6E8;
+  --competitive: #D94E89;  --competitive-soft: #FADCE8;
+
+  /* Player badge */
+  --p1: #4DB8A8;  --p1-soft: #D4F0EB;
+  --p2: #E07A4F;  --p2-soft: #F8DCCC;
+
+  /* Card thumbnail gradients (per genre) */
+  --thumb-arcade-a: #FDE4B3;      --thumb-arcade-b: #FCEED1;
+  --thumb-puzzle-a: #D7CFFA;      --thumb-puzzle-b: #E7E3FA;
+  --thumb-horror-a: #BFB3D5;      --thumb-horror-b: #DDD6E8;
+  --thumb-competitive-a: #F4B8D2; --thumb-competitive-b: #FADCE8;
+
+  /* Surfaces */
+  --header-bg: rgba(251, 247, 240, 0.85);
+  --modal-backdrop: rgba(45, 37, 32, 0.4);
+
+  /* Shadows */
+  --shadow-card: 0 2px 8px rgba(45, 37, 32, 0.04), 0 1px 2px rgba(45, 37, 32, 0.03);
+  --shadow-card-hover: 0 12px 28px rgba(45, 37, 32, 0.1), 0 4px 8px rgba(45, 37, 32, 0.05);
+  --shadow-sticker: 0 3px 8px rgba(45, 37, 32, 0.15);
+  --shadow-modal: 0 24px 64px rgba(45, 37, 32, 0.2), 0 8px 24px rgba(45, 37, 32, 0.08);
+  --shadow-segment-active: 0 1px 3px rgba(45, 37, 32, 0.1);
+}
+
+[data-theme="dark"] {
+  --bg: #1A1614;
+  --bg-soft: #221D1A;
+  --surface: #2A2421;
+  --surface-2: #322B27;
+  --text: #F5EDDF;
+  --text-muted: #A8A199;
+  --text-faint: #6B655E;
+  --border: #3A332E;
+  --border-strong: #4D4640;
+
+  --primary: #FF7F6F;
+  --primary-hover: #FF9485;
+  --primary-soft: #4A2520;
+
+  --error: #FF7B6B;
+  --error-soft: #3D1D18;
+
+  --arcade: #F5B445;       --arcade-soft: #3E2F15;
+  --puzzle: #9B8BFF;       --puzzle-soft: #2D2750;
+  --horror: #B5A4D5;       --horror-soft: #2A2440;
+  --competitive: #FF6BA8;  --competitive-soft: #3D1A2A;
+
+  --p1: #5DD4C0;  --p1-soft: #1F3A36;
+  --p2: #FF8E5C;  --p2-soft: #3A2418;
+
+  --thumb-arcade-a: #4A3818;      --thumb-arcade-b: #3E2F15;
+  --thumb-puzzle-a: #322B5A;      --thumb-puzzle-b: #2D2750;
+  --thumb-horror-a: #2F2748;      --thumb-horror-b: #2A2440;
+  --thumb-competitive-a: #4A1F33; --thumb-competitive-b: #3D1A2A;
+
+  --header-bg: rgba(26, 22, 20, 0.85);
+  --modal-backdrop: rgba(0, 0, 0, 0.55);
+
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-sticker: 0 3px 8px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.3);
+  --shadow-segment-active: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
