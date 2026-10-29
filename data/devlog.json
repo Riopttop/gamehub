@@ -1,0 +1,58 @@
+{
+  "_comment": "자동 생성 파일입니다. 직접 수정하지 말고 devlog/*.md 를 고친 뒤 npm run registry 를 실행하세요.",
+  "generatedAt": "2026-10-29T04:16:14.668Z",
+  "posts": [
+    {
+      "slug": "2026-10-28-pong",
+      "title": {
+        "ko": "퐁 출시",
+        "en": "PONG released"
+      },
+      "date": "2026-10-28",
+      "type": "new-game",
+      "games": [
+        "pong"
+      ],
+      "lang": "ko",
+      "summary": {
+        "ko": "AI 또는 친구와 붙는 클래식 핑퐁, PONG을 공개했어요.",
+        "en": "PONG is out: classic paddle battles against the AI or a friend."
+      },
+      "html": "<p>GAMEHUB의 첫 게임 <strong>PONG</strong>을 공개했어요. 패들로 공을 받아치는 클래식 핑퐁이에요. AI와 붙거나, 한 키보드로 친구와 같이 할 수 있어요.</p>\n<h3>모드</h3>\n<ul><li><strong>1P vs AI</strong>: 난이도는 EASY, NORMAL, HARD 중에서 골라요.</li><li><strong>2P LOCAL</strong>: 왼쪽은 <code>W</code> <code>S</code>, 오른쪽은 방향키로 조작해요.</li><li>승리 점수는 5, 7, 11점 중에서 정할 수 있어요.</li></ul>\n<h3>조작법</h3>\n<ol><li>1P는 <code>W</code> <code>S</code> 또는 방향키로 패들을 움직여요.</li><li><code>P</code>나 <code>Esc</code>로 일시정지, <code>R</code>로 재시작, <code>M</code>으로 음소거해요.</li><li>터치 기기에서는 화면을 손가락으로 끌어서 패들을 움직여요.</li></ol>\n<h3>스매시</h3>\n<p>패들을 <em>움직이면서</em> 끝부분으로 받아치면 공이 세게 나가는 <strong>스매시</strong>가 터져요. 랠리가 길어질수록 공이 빨라지고, 타격음도 한 음씩 올라가요.</p>\n<blockquote><p>1.1.0 업데이트에서 타격 이펙트와 스매시를 추가하고 사운드를 새로 만들었어요.</p></blockquote>\n<p><a href=\"#/game/pong\">PONG 하러 가기</a></p>"
+    },
+    {
+      "slug": "2026-10-28-last-shelter",
+      "title": {
+        "ko": "최후의 피난처 출시",
+        "en": "LAST SHELTER released"
+      },
+      "date": "2026-10-28",
+      "type": "new-game",
+      "games": [
+        "last-shelter"
+      ],
+      "lang": "ko",
+      "summary": {
+        "ko": "폐허 도시에서 거점을 짓고 좀비를 버티는 생존 게임, 최후의 피난처를 공개했어요.",
+        "en": "LAST SHELTER is out: scavenge, build and survive the nightly horde."
+      },
+      "html": "<p>두 번째 게임 <strong>최후의 피난처(LAST SHELTER)</strong>를 공개했어요. 폐허가 된 도시에서 살아남는 탑다운 좀비 생존 게임이에요.</p>\n<h3>하루의 흐름</h3>\n<ul><li><strong>낮</strong>: 건물을 뒤져 재료와 음식을 모으고, 나무와 바위를 채집해요.</li><li><strong>제작</strong>: 제작대에서 무기와 도구를 만들어요. 레벨을 올리면 총도 만들 수 있어요.</li><li><strong>밤</strong>: 직접 지은 벽과 거점에서 몰려오는 좀비를 막아요. <em>5일마다</em> 더 큰 것이 와요.</li></ul>\n<h3>알아 두면 좋은 것</h3>\n<ol><li>가방에는 무게 제한이 있어요. 너무 많이 들면 느려져요.</li><li>생고기는 화로 조리대에서 익혀 먹어야 해요.</li><li>거점 깃발은 체크포인트예요. 쓰러지면 그곳에서 다시 일어나요.</li><li>진행 상황은 브라우저에 자동으로 저장돼요(슬롯 3개).</li></ol>\n<blockquote><p>키보드와 마우스, 게임패드, 모바일 터치 모두 지원해요. 모바일에서는 가로 화면으로 해 주세요.</p></blockquote>\n<p><a href=\"#/game/last-shelter\">최후의 피난처 하러 가기</a></p>"
+    },
+    {
+      "slug": "2026-10-28-gamehub-open",
+      "title": {
+        "ko": "게임허브 오픈",
+        "en": "GAMEHUB is live"
+      },
+      "date": "2026-10-28",
+      "type": "update",
+      "games": [],
+      "lang": "ko",
+      "summary": {
+        "ko": "직접 만든 브라우저 게임을 모아두는 GAMEHUB를 열었어요.",
+        "en": "GAMEHUB, a home for my handmade browser games, is now open."
+      },
+      "html": "<p>직접 만든 브라우저 게임을 한곳에 모아두려고 <strong>GAMEHUB</strong>를 만들었어요. 설치 없이 브라우저에서 바로 플레이할 수 있어요.</p>\n<h3>지금 할 수 있는 것</h3>\n<ul><li>게임 목록을 태그로 거르고 검색하기</li><li>게임 페이지에서 바로 플레이, 전체화면, 링크 복사</li><li>설정에서 테마 4종(베이식, 네온, 레트로, 터미널)과 언어(한국어/English) 바꾸기</li><li>이 데브로그에서 업데이트 소식 보기</li></ul>\n<figure><img src=\"devlog/images/gamehub-themes.svg\" alt=\"GAMEHUB 테마 4종 미리보기\" width=\"960\" height=\"400\" loading=\"lazy\" decoding=\"async\"></figure>\n<h3>만든 방식</h3>\n<p>프레임워크 없이 <em>순수 HTML, CSS, JavaScript</em>로 만들었어요. 빌드 과정이 없어서 GitHub Pages에 파일을 그대로 올리면 끝이에요. 게임을 추가할 때는 <code>games/&lt;id&gt;/</code> 폴더 하나만 만들면 돼요.</p>\n<pre><code class=\"language-txt\">games/my-game/\n  index.html\n  game.json\n  thumb.png</code></pre>\n<blockquote><p>버그나 아이디어가 있으면 언제든 알려 주세요.</p></blockquote>\n<p>첫 게임은 <a href=\"#/game/pong\">PONG</a>이에요.</p>"
+    }
+  ]
+}
