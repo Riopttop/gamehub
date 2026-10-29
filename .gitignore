@@ -1,0 +1,7 @@
+# 자동 생성 파일 (GitHub Actions에서 생성)
+data/games.json
+data/devlog.json
+
+node_modules/
+.DS_Store
+Thumbs.db

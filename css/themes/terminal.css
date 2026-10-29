@@ -1,0 +1,42 @@
+/* ==========================================================================
+   terminal 테마 추가 스타일 (색, 폰트, 라운드는 tokens.css 의 terminal 블록)
+   프롬프트 기호, 커서 깜빡임, 반전 블록 강조만 둔다. 선택자는 전부 [data-theme="terminal"] 로 한정.
+   ========================================================================== */
+
+[data-theme="terminal"] .logo::before {
+  content: "> ";
+  color: var(--color-text-muted);
+}
+
+[data-theme="terminal"] .logo::after {
+  content: "_";
+  animation: terminal-blink 1s steps(1) infinite;
+}
+
+@keyframes terminal-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 강조 = 반전 블록 */
+[data-theme="terminal"] ::selection {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+[data-theme="terminal"] .site-nav__link:hover,
+[data-theme="terminal"] .site-nav__link[aria-current="page"] {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+[data-theme="terminal"] .game-card:hover {
+  transform: none;
+  border-color: var(--color-accent);
+}
+
+[data-theme="terminal"] .tag {
+  border: var(--border-width) solid var(--color-border);
+  background: transparent;
+}

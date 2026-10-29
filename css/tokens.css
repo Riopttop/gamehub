@@ -1,0 +1,297 @@
+/* ==========================================================================
+   테마 토큰
+   - 사이트의 모든 색, 폰트, 라운드, 그림자, 간격 값은 여기에만 정의한다.
+   - base.css / components.css 는 var(--*) 만 사용한다. (하드코딩 금지)
+   - 새 테마 추가: [data-theme="이름"] { ... } 블록 하나를 아래에 추가하고
+     js/settings.js 의 THEMES 에 등록하면 끝. (CLAUDE.md "새 테마 추가하는 법")
+   - 테마 블록마다 아래 변수 세트를 전부 채운다:
+       color-scheme
+       --color-bg, --color-surface, --color-surface-2, --color-border, --color-border-strong,
+       --color-text, --color-text-muted,
+       --color-accent, --color-accent-hover, --color-on-accent,
+       --color-accent-2, --color-on-accent-2,
+       --color-accent-soft, --color-on-accent-soft, --color-focus,
+       --color-overlay, --color-on-overlay,
+       --color-new, --color-on-new, --color-soon, --color-on-soon,
+       --color-notice, --color-on-notice, --color-notice-border,
+       --color-stage, --color-on-stage,
+       --font-body, --font-heading, --font-mono,
+       --font-weight-regular, --font-weight-medium, --font-weight-bold, --font-weight-heavy,
+       --letter-spacing-logo, --text-transform-heading,
+       --radius-sm, --radius-md, --radius-lg, --radius-pill,
+       --border-width,
+       --shadow-sm, --shadow-md, --shadow-lg, --shadow-keycap
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   테마와 무관한 공통 스케일 (간격, 글자 크기, 레이아웃)
+   테마별로 바꾸고 싶으면 테마 블록에서 덮어쓰면 된다.
+   -------------------------------------------------------------------------- */
+:root {
+  /* 간격 스케일 (4px 기반) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* 글자 크기 */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+
+  /* 레이아웃 */
+  --container-max: 1200px;
+  --tap-min: 44px;        /* 버튼, 클릭 영역 최소 크기 */
+  --focus-ring-width: 3px;
+  --duration: 160ms;
+  --duration-theme: 240ms; /* 테마 전환 트랜지션 */
+  --easing: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* --------------------------------------------------------------------------
+   basic 테마: 깔끔하고 중립적. 밝기 옵션(data-mode)이 있는 유일한 테마.
+   data-mode = system(기본) | light | dark
+   색은 light-dark(라이트값, 다크값) 으로 한 번에 정의하고,
+   color-scheme 으로 어느 쪽을 쓸지 고른다.
+   -------------------------------------------------------------------------- */
+[data-theme="basic"] {
+  color-scheme: light dark;
+
+  /* 색 */
+  --color-bg: light-dark(#f5f6f8, #0f1115);
+  --color-surface: light-dark(#ffffff, #171a20);
+  --color-surface-2: light-dark(#eceef2, #21252d);   /* 칩, 키캡, hover 등 한 단계 올라온 표면 */
+  --color-border: light-dark(#d6dae1, #2d323c);
+  --color-border-strong: light-dark(#b4bac5, #454c59);
+  --color-text: light-dark(#14171c, #e9ebef);
+  --color-text-muted: light-dark(#535b67, #a4abb7);
+  --color-accent: light-dark(#2453d6, #7ea4ff);
+  --color-accent-hover: light-dark(#1c43b3, #a2bdff);
+  --color-on-accent: light-dark(#ffffff, #0b1022);
+  --color-accent-2: light-dark(#2453d6, #7ea4ff);    /* 보조 강조 (basic 은 주 강조와 같음) */
+  --color-on-accent-2: light-dark(#ffffff, #0b1022);
+  --color-accent-soft: light-dark(#e5ebfb, #1d2741); /* 강조색 연한 배경 */
+  --color-on-accent-soft: light-dark(#1a3c9e, #c3d4ff);
+  --color-focus: light-dark(#2453d6, #9cb8ff);
+  --color-overlay: light-dark(rgba(12, 14, 18, 0.62), rgba(0, 0, 0, 0.6));
+  --color-on-overlay: #ffffff;
+  --color-new: light-dark(#0d6e37, #4ade80);
+  --color-on-new: light-dark(#ffffff, #052e16);
+  --color-soon: light-dark(#7a4f00, #fbbf24);
+  --color-on-soon: light-dark(#ffffff, #241800);
+  --color-notice: light-dark(#fff4dc, #2c2312);
+  --color-on-notice: light-dark(#5c3b00, #f6dca5);
+  --color-notice-border: light-dark(#e8c27a, #6b5424);
+  --color-stage: light-dark(#0b0d11, #000000);       /* 게임 플레이 영역 배경 */
+  --color-on-stage: #ffffff;
+
+  /* 폰트 (웹폰트 없음) */
+  --font-body: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  --font-heading: var(--font-body);
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, "D2Coding", monospace;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 800;
+  --letter-spacing-logo: 0.08em;
+  --text-transform-heading: none;
+
+  /* 라운드, 테두리 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+
+  /* 그림자 */
+  --shadow-sm: 0 1px 3px light-dark(rgba(16, 24, 40, 0.1), rgba(0, 0, 0, 0.4));
+  --shadow-md: 0 4px 12px light-dark(rgba(16, 24, 40, 0.1), rgba(0, 0, 0, 0.45));
+  --shadow-lg: 0 12px 32px light-dark(rgba(16, 24, 40, 0.16), rgba(0, 0, 0, 0.55));
+  --shadow-keycap: inset 0 -2px 0 var(--color-border-strong);
+}
+
+[data-theme="basic"][data-mode="light"] {
+  color-scheme: light;
+}
+
+[data-theme="basic"][data-mode="dark"] {
+  color-scheme: dark;
+}
+
+/* --------------------------------------------------------------------------
+   neon 테마: 어두운 남색 배경, 시안 포인트, 핑크 보조 포인트. 고정 다크.
+   웹폰트: Chakra Petch(제목), Noto Sans KR(본문) — js/settings.js 가 불러온다.
+   -------------------------------------------------------------------------- */
+[data-theme="neon"] {
+  color-scheme: dark;
+
+  --color-bg: #0a0e27;
+  --color-surface: #11173a;
+  --color-surface-2: #1a2250;
+  --color-border: #2a3572;
+  --color-border-strong: #4a58a8;
+  --color-text: #eaeeff;
+  --color-text-muted: #a6b0dc;
+  --color-accent: #22e5ff;
+  --color-accent-hover: #8af2ff;
+  --color-on-accent: #041320;
+  --color-accent-2: #ff5cbf;
+  --color-on-accent-2: #1f0014;
+  --color-accent-soft: #0d2e4a;
+  --color-on-accent-soft: #a4f5ff;
+  --color-focus: #ff5cbf;
+  --color-overlay: rgba(5, 8, 26, 0.72);
+  --color-on-overlay: #ffffff;
+  --color-new: #3dffa8;
+  --color-on-new: #002414;
+  --color-soon: #ffd23f;
+  --color-on-soon: #241a00;
+  --color-notice: #2a1640;
+  --color-on-notice: #ffc8ec;
+  --color-notice-border: #7a3a8f;
+  --color-stage: #000000;
+  --color-on-stage: #ffffff;
+
+  --font-body: "Noto Sans KR", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  --font-heading: "Chakra Petch", "Noto Sans KR", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Consolas, "D2Coding", monospace;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 700;
+  --letter-spacing-logo: 0.14em;
+  --text-transform-heading: none;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+
+  --shadow-sm: 0 0 0 1px rgba(34, 229, 255, 0.12), 0 2px 6px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 0 18px rgba(34, 229, 255, 0.14), 0 4px 14px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 0 28px rgba(255, 92, 191, 0.22), 0 12px 32px rgba(0, 0, 0, 0.6);
+  --shadow-keycap: inset 0 -2px 0 var(--color-border-strong);
+}
+
+/* --------------------------------------------------------------------------
+   retro 테마: 픽셀 게임 느낌. 라운드 0, 두꺼운 테두리, 오프셋 단색 그림자. 고정 다크.
+   웹폰트: Galmuri (jsDelivr) — js/settings.js 가 불러온다.
+   추가 스타일: css/themes/retro.css
+   -------------------------------------------------------------------------- */
+[data-theme="retro"] {
+  color-scheme: dark;
+
+  --color-bg: #1c1930;
+  --color-surface: #2a2546;
+  --color-surface-2: #3a3360;
+  --color-border: #6c62ab;
+  --color-border-strong: #b9aff0;
+  --color-text: #f7f0dc;
+  --color-text-muted: #c9c0ea;
+  --color-accent: #ffcc33;
+  --color-accent-hover: #ffe08a;
+  --color-on-accent: #1c1930;
+  --color-accent-2: #ff7a7a;
+  --color-on-accent-2: #1c1930;
+  --color-accent-soft: #3d3466;
+  --color-on-accent-soft: #ffe08a;
+  --color-focus: #ff7a7a;
+  --color-overlay: rgba(12, 10, 24, 0.72);
+  --color-on-overlay: #ffffff;
+  --color-new: #5ee27a;
+  --color-on-new: #0f220f;
+  --color-soon: #ff9f43;
+  --color-on-soon: #241200;
+  --color-notice: #3b2a1a;
+  --color-on-notice: #ffdaa3;
+  --color-notice-border: #b07a3c;
+  --color-stage: #000000;
+  --color-on-stage: #ffffff;
+
+  --font-body: "Galmuri11", "Galmuri9", ui-monospace, monospace;
+  --font-heading: "Galmuri11", "Galmuri9", ui-monospace, monospace;
+  --font-mono: "GalmuriMono11", "Galmuri11", ui-monospace, monospace;
+  --font-weight-regular: 400;
+  --font-weight-medium: 400;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 700;
+  --letter-spacing-logo: 0.1em;
+  --text-transform-heading: uppercase;
+
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-pill: 0;
+  --border-width: 3px;
+
+  --shadow-sm: 2px 2px 0 #0b0916;
+  --shadow-md: 4px 4px 0 #0b0916;
+  --shadow-lg: 6px 6px 0 #0b0916;
+  --shadow-keycap: inset 0 -3px 0 var(--color-border-strong);
+}
+
+/* --------------------------------------------------------------------------
+   terminal 테마: 검은 배경, 초록 텍스트, 모노스페이스, 라운드 0, 강조는 반전 블록. 고정 다크.
+   웹폰트: Nanum Gothic Coding (한글 고정폭) — js/settings.js 가 불러온다.
+   추가 스타일: css/themes/terminal.css
+   -------------------------------------------------------------------------- */
+[data-theme="terminal"] {
+  color-scheme: dark;
+
+  --color-bg: #000000;
+  --color-surface: #040a05;
+  --color-surface-2: #0b1a0d;
+  --color-border: #1f5c28;
+  --color-border-strong: #39b54a;
+  --color-text: #3dff6e;
+  --color-text-muted: #2ec055;
+  --color-accent: #3dff6e;
+  --color-accent-hover: #a0ffb6;
+  --color-on-accent: #000000;
+  --color-accent-2: #ffb000;
+  --color-on-accent-2: #000000;
+  --color-accent-soft: #0e2a14;
+  --color-on-accent-soft: #6dff92;
+  --color-focus: #ffb000;
+  --color-overlay: rgba(0, 0, 0, 0.78);
+  --color-on-overlay: #3dff6e;
+  --color-new: #3dff6e;
+  --color-on-new: #000000;
+  --color-soon: #ffb000;
+  --color-on-soon: #000000;
+  --color-notice: #171200;
+  --color-on-notice: #ffc84d;
+  --color-notice-border: #8a6d00;
+  --color-stage: #000000;
+  --color-on-stage: #3dff6e;
+
+  --font-body: "Nanum Gothic Coding", ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace;
+  --font-heading: var(--font-body);
+  --font-mono: var(--font-body);
+  --font-weight-regular: 400;
+  --font-weight-medium: 400;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 700;
+  --letter-spacing-logo: 0.04em;
+  --text-transform-heading: none;
+
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-pill: 0;
+  --border-width: 1px;
+
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-keycap: none;
+}

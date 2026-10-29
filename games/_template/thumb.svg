@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400">
+  <!-- 임시 썸네일. 실제 게임 화면 캡처(16:10, 예: 1280x800)로 교체하세요. -->
+  <rect width="640" height="400" fill="#2a2f3a"/>
+  <rect x="16" y="16" width="608" height="368" rx="12" fill="none" stroke="#5b6475" stroke-width="3" stroke-dasharray="12 10"/>
+  <text x="320" y="196" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="40" font-weight="700" fill="#d7dce5">THUMBNAIL</text>
+  <text x="320" y="240" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif" font-size="22" fill="#a4abb7">16 : 10</text>
+</svg>

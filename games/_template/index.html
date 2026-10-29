@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MY GAME</title>
+  <style>
+    /* 게임은 iframe 안을 꽉 채우고, 스크롤바가 생기지 않게 */
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+    canvas { display: block; width: 100%; height: 100%; outline: none; }
+  </style>
+</head>
+<body>
+  <canvas id="game" tabindex="0"></canvas>
+
+  <!-- 이미지, 사운드, 스크립트 같은 에셋은 반드시 상대경로로 (예: "assets/player.png") -->
+  <!-- "/assets/..." 처럼 / 로 시작하면 GitHub Pages 서브경로에서 깨진다 -->
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // 게임이 쓰는 키는 preventDefault 로 브라우저 스크롤을 막는다
+    const GAME_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
+    window.addEventListener('keydown', (e) => {
+      if (GAME_KEYS.includes(e.code)) e.preventDefault();
+    });
+
+    // iframe 안을 클릭하면 키보드 포커스를 가져온다
+    canvas.addEventListener('pointerdown', () => window.focus());
+
+    function frame() {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = '24px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('MY GAME', canvas.width / 2, canvas.height / 2);
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

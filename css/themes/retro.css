@@ -1,0 +1,33 @@
+/* ==========================================================================
+   retro 테마 추가 스타일 (색, 폰트, 라운드, 그림자는 tokens.css 의 retro 블록)
+   여기에는 토큰으로 표현할 수 없는 "픽셀 느낌"만 둔다. 선택자는 전부 [data-theme="retro"] 로 한정.
+   ========================================================================== */
+
+[data-theme="retro"] body {
+  -webkit-font-smoothing: none;
+}
+
+/* 픽셀 이미지는 뭉개지지 않게 */
+[data-theme="retro"] .game-card__img,
+[data-theme="retro"] .banner__media img,
+[data-theme="retro"] .stage__poster {
+  image-rendering: pixelated;
+}
+
+/* 버튼은 오프셋 그림자가 있고, 누르면 그림자 쪽으로 눌린다 */
+[data-theme="retro"] .btn,
+[data-theme="retro"] .chip,
+[data-theme="retro"] .play-btn {
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="retro"] .btn:active:not(:disabled),
+[data-theme="retro"] .chip:active,
+[data-theme="retro"] .play-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+[data-theme="retro"] .game-card:hover {
+  transform: translate(-2px, -2px);
+}

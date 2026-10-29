@@ -1,0 +1,32 @@
+{
+  "title": "최후의 피난처 LAST SHELTER",
+  "description": { "ko": "폐허가 된 도시에서 재료를 모아 거점을 짓고 밤마다 몰려오는 좀비를 버티는 생존 게임", "en": "Scavenge a ruined city, build a shelter, and survive the hordes that come every night" },
+  "about": {
+    "ko": "발병 217일째. 낮에는 건물을 뒤져 재료를 모으고 제작대에서 무기를 만들고, 밤에는 직접 지은 거점에서 좀비 무리를 막아내세요. 5일마다 더 큰 것이 옵니다. 진행 상황은 브라우저에 자동 저장돼요(슬롯 3개).",
+    "en": "Day 217 of the outbreak. Scavenge buildings and craft weapons by day, then hold your own shelter against the horde by night. Something bigger comes every 5 days. Progress saves automatically in your browser (3 slots)."
+  },
+  "tags": ["survival", "action"],
+  "controls": [
+    { "action": { "ko": "이동", "en": "Move" }, "keys": "W / A / S / D" },
+    { "action": { "ko": "공격", "en": "Attack" }, "keys": "LMB" },
+    { "action": { "ko": "줍기, 상호작용", "en": "Pick up, interact" }, "keys": "E" },
+    { "action": { "ko": "근접 공격, 채집", "en": "Melee, gather" }, "keys": "F" },
+    { "action": { "ko": "재장전", "en": "Reload" }, "keys": "R" },
+    { "action": { "ko": "건설 모드", "en": "Build mode" }, "keys": "B" },
+    { "action": { "ko": "인벤토리", "en": "Inventory" }, "keys": "Tab" },
+    { "action": { "ko": "수류탄 / 화염병", "en": "Grenade / Molotov" }, "keys": "G / V" },
+    { "action": { "ko": "식사 / 구급상자", "en": "Eat / Medkit" }, "keys": "T / Q" },
+    { "action": { "ko": "지도", "en": "Map" }, "keys": "M" },
+    { "action": { "ko": "능력치, 저장", "en": "Stats, save" }, "keys": "C" },
+    { "action": { "ko": "메뉴", "en": "Menu" }, "keys": "Esc" }
+  ],
+  "input": { "keyboard": true, "touch": true },
+  "status": "live",
+  "featured": true,
+  "aspect": "16:9",
+  "version": "1.0.0",
+  "updated": "2026-10-28",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-10-28", "notes": { "ko": "GAMEHUB에 첫 공개 (모바일 터치 조작, 게임패드 지원)", "en": "First release on GAMEHUB (touch controls, gamepad support)" } }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "title": "PONG",
+  "description": { "ko": "AI 또는 친구와 붙는 클래식 핑퐁", "en": "Classic pong against AI or a friend" },
+  "tags": ["classic"],
+  "controls": [
+    { "action": { "ko": "왼쪽 패들", "en": "Left paddle" }, "keys": "W / S" },
+    { "action": { "ko": "오른쪽 패들 (2P)", "en": "Right paddle (2P)" }, "keys": "↑ / ↓" },
+    { "action": { "ko": "일시정지", "en": "Pause" }, "keys": "P / Esc" },
+    { "action": { "ko": "재시작", "en": "Restart" }, "keys": "R" },
+    { "action": { "ko": "음소거", "en": "Mute" }, "keys": "M" }
+  ],
+  "input": { "keyboard": true, "touch": true },
+  "status": "live",
+  "featured": true,
+  "aspect": "16:9",
+  "version": "1.1.0",
+  "updated": "2026-10-28",
+  "changelog": [
+    { "version": "1.1.0", "date": "2026-10-28", "notes": { "ko": "타격 이펙트·스매시 추가, 사운드 개편, 패들 속도 증가, 마우스 조종 제거", "en": "Hit effects and smashes, reworked sound, faster paddles, mouse control removed" } },
+    { "version": "1.0.0", "date": "2026-10-28", "notes": { "ko": "첫 공개", "en": "First release" } }
+  ]
+}

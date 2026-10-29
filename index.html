@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko" data-theme="basic" data-mode="system">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>GAMEHUB</title>
+  <meta name="description" content="직접 만든 브라우저 게임 모음. 설치 없이 바로 플레이하세요.">
+  <!-- 공유 미리보기 (SNS 는 JS 를 실행하지 않으므로 여기 값이 쓰인다).
+       og:image / og:url 은 배포 주소 기준 절대 URL 로 바꾸는 걸 권장: https://<user>.github.io/<repo>/og.png -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="GAMEHUB">
+  <meta property="og:title" content="GAMEHUB">
+  <meta property="og:description" content="직접 만든 브라우저 게임 모음. 설치 없이 바로 플레이하세요.">
+  <meta property="og:image" content="og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="GAMEHUB">
+  <meta property="og:locale" content="ko_KR">
+  <meta name="twitter:card" content="summary_large_image">
+  <script>
+    // 깜빡임 방지: CSS 를 읽기 전에 저장된 테마/밝기/모션/언어를 <html> 에 적용한다.
+    // 검사 규칙은 js/settings.js 와 같게 유지할 것 (값이 이상하면 기본값).
+    (function () {
+      var root = document.documentElement;
+      var s = {};
+      try { s = JSON.parse(localStorage.getItem('gamehub:v1:settings')) || {}; } catch (e) {}
+      var pick = function (v, list) { return list.indexOf(v) >= 0 ? v : list[0]; };
+      root.setAttribute('data-theme', pick(s.theme, ['basic', 'neon', 'retro', 'terminal']));
+      root.setAttribute('data-mode', pick(s.mode, ['system', 'light', 'dark']));
+      root.setAttribute('data-reduced-motion', pick(s.reducedMotion, ['system', 'on', 'off']));
+      var lang = s.lang === 'ko' || s.lang === 'en' ? s.lang : /^ko/i.test(navigator.language || '') ? 'ko' : 'en';
+      root.setAttribute('lang', lang);
+    })();
+  </script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/themes/retro.css">
+  <link rel="stylesheet" href="css/themes/terminal.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main" data-skip-link>본문으로 건너뛰기</a>
+  <div id="site-header"></div>
+  <main id="main" class="site-main" tabindex="-1">
+    <noscript>
+      <p class="container page">GAMEHUB는 JavaScript가 필요해요. / GAMEHUB requires JavaScript.</p>
+    </noscript>
+  </main>
+  <div id="site-footer"></div>
+  <div id="site-tabbar"></div>
+</body>
+</html>

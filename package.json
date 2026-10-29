@@ -1,0 +1,11 @@
+{
+  "name": "gamehub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "직접 만든 브라우저 게임을 모아두는 게임 포털",
+  "type": "module",
+  "scripts": {
+    "registry": "node scripts/build-registry.mjs && node scripts/build-devlog.mjs",
+    "dev": "npm run registry && npx --yes serve ."
+  }
+}

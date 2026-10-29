@@ -1,0 +1,1317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>PONG</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+  }
+  canvas { display: block; outline: none; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="Pong game"></canvas>
+<script>
+'use strict';
+
+// =====================================================================
+// 1. 설정값
+// =====================================================================
+
+// 색과 폰트. 포털 테마에 맞출 때는 여기만 고치면 됨
+const THEME = {
+  bg: '#0e1116',          // 게임 필드 배경
+  letterbox: '#07080b',   // 16:9 바깥 여백
+  fg: '#e9edf2',          // 패들, 공, 점수, 기본 텍스트
+  dim: '#5b6472',         // 중앙선, 보조 텍스트, 비활성 요소
+  accent: '#6ee7b7',      // 메뉴 포커스, 승자 표시
+  warm: '#ffd166',        // 빠른 공, 강한 타격
+  hot: '#ff5d3a',         // 스매시
+  overlay: 'rgba(7, 8, 11, 0.82)',
+  font: 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace',
+};
+
+const CONFIG = {
+  width: 1600,              // 가상 해상도 (16:9). 모든 게임 좌표는 이 단위
+  height: 900,
+  maxDt: 0.05,              // 프레임당 dt 상한(초). 탭 전환 후 공이 순간이동하지 않게
+  paddle: {
+    width: 20,
+    height: 140,
+    margin: 48,             // 화면 끝에서 패들까지 거리
+    speed: 1150,            // 키보드 이동 속도 (px/s)
+    touchSpeed: 1600,       // 터치로 손가락을 따라갈 때 최대 속도 (px/s)
+  },
+  ball: {
+    size: 18,
+    startSpeed: 620,        // 서브 속도 (px/s)
+    speedUpPerHit: 65,      // 패들에 맞을 때마다 기본 속도 증가량
+    maxSpeed: 1800,         // 기본 속도 상한 (랠리로 쌓이는 속도)
+    smashMaxSpeed: 2500,    // 타격 배율까지 곱한 순간 속도 상한
+    maxBounceAngle: 55,     // 패들 끝에 맞았을 때 각도 (도)
+    serveAngle: 25,         // 서브 각도 랜덤 범위 (±도)
+  },
+  // 타격 세기. 기본 속도 × 배율이 그 타구의 속도가 되고, 다음 타격 때 다시 기본 속도에서 계산
+  //  edge  : 패들 중심에서 edgeStart 비율 바깥부터 0→1 (끝으로 갈수록 1)
+  //  motion: 패들 이동 속도 / paddle.speed
+  //  power : edge × (0.4 + 0.6 × motion). 움직이면서 끝으로 쳐야 1에 가까워짐
+  //  배율  = centerMul + edgeMul × edge + powerMul × power (+ smashBonus)
+  hit: {
+    edgeStart: 0.35,
+    centerMul: 0.95,        // 정중앙으로 받으면 살짝 죽은 공
+    edgeMul: 0.2,
+    powerMul: 0.35,
+    smashPower: 0.6,        // power가 이 이상이면 스매시
+    smashBonus: 0.15,
+    spinAngle: 12,          // 패들이 움직이는 방향으로 꺾이는 최대 각도 (도)
+    maxAngle: 62,           // 스핀까지 더한 최종 각도 상한 (도)
+  },
+  winScores: [5, 7, 11],
+  defaultWinScore: 7,
+  countdownStep: 0.75,      // 3-2-1 숫자 하나당 시간(초)
+  scorePause: 0.8,          // 득점 후 멈춤 시간(초)
+  trail: { length: 14, interval: 1 / 60 },
+  fx: {
+    hitStop: 0.035,         // 일반 타격 시 멈춤(초). power에 따라 최대 1.6배
+    hitStopSmash: 0.11,
+    maxParticles: 500,
+  },
+  storageKey: 'pong.muted',
+};
+
+// AI 난이도. 플레이어 패들 속도는 CONFIG.paddle.speed (1150)
+//  reaction : 공이 방향을 바꾼 뒤 반응하기까지 걸리는 시간이자 목표 재계산 주기(초)
+//  maxSpeed : AI 패들 최대 속도 (px/s)
+//  error    : 도착 위치 예측 오차 최대치(px). 접근할 때마다 한 번 뽑고,
+//             공 속도에 따라 0.9배(서브 속도)~1.5배(최대 속도)로 커짐.
+//             패들 반높이+공 반크기(79px)를 넘으면 놓침
+//  idleSpeed: 공이 멀어질 때 중앙으로 돌아가는 속도 (maxSpeed 대비 비율)
+const AI_LEVELS = {
+  easy:   { label: 'EASY',   reaction: 0.30, maxSpeed: 430, error: 120, idleSpeed: 0.35 },
+  normal: { label: 'NORMAL', reaction: 0.18, maxSpeed: 600, error: 100, idleSpeed: 0.40 },
+  hard:   { label: 'HARD',   reaction: 0.10, maxSpeed: 740, error: 75,  idleSpeed: 0.50 },
+};
+const AI_ORDER = ['easy', 'normal', 'hard'];
+
+const TEXT = {
+  title: 'PONG',
+  mode: 'MODE', mode1p: '1P vs AI', mode2p: '2P LOCAL',
+  difficulty: 'AI', firstTo: 'FIRST TO', start: 'START',
+  paused: 'PAUSED', resume: 'RESUME', restart: 'RESTART', menu: 'MENU', playAgain: 'PLAY AGAIN',
+  youWin: 'YOU WIN', aiWins: 'AI WINS', leftWins: 'LEFT WINS', rightWins: 'RIGHT WINS',
+  soundOn: '[M] SOUND ON', soundOff: '[M] SOUND OFF', muted: 'MUTED',
+  help: [
+    '1P   W/S or ↑/↓',
+    '2P   LEFT W/S   ·   RIGHT ↑/↓',
+    'HIT WITH THE EDGE WHILE MOVING  =  SMASH',
+    'P/Esc PAUSE   ·   R RESTART   ·   M MUTE',
+  ],
+  smash: 'SMASH!',
+  rally: 'RALLY',
+};
+
+const W = CONFIG.width;
+const H = CONFIG.height;
+
+// =====================================================================
+// 2. 입력 (키보드 / 포인터 / 포커스 / 리사이즈)
+// =====================================================================
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const view = { sx: 1, sy: 1 };
+
+const keys = new Set();
+// 부모 페이지(포털)가 스크롤되지 않게 막을 키
+const PREVENT_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space']);
+
+window.addEventListener('keydown', (e) => {
+  if (PREVENT_KEYS.has(e.code)) e.preventDefault();
+  Sound.unlock();
+  keys.add(e.code);
+  onKey(e.code, e.repeat);
+});
+window.addEventListener('keyup', (e) => {
+  if (PREVENT_KEYS.has(e.code)) e.preventDefault();
+  keys.delete(e.code);
+});
+window.addEventListener('blur', () => keys.clear());
+
+// pointerId -> 'left' | 'right'. 터치 하나하나가 패들 하나를 담당
+const pointers = new Map();
+const touchTarget = { left: null, right: null };
+
+function toVirtual(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) / r.width * W,
+    y: (e.clientY - r.top) / r.height * H,
+  };
+}
+
+window.addEventListener('pointerdown', (e) => {
+  Sound.unlock();
+  focusGame();
+  const p = toVirtual(e);
+  if (isUiState()) {
+    const hit = ui.hits.find((h) => inRect(p, h));
+    if (hit) hit.action();
+    return;
+  }
+  if (inRect(p, PAUSE_BUTTON)) { pauseGame(); return; }
+  // 마우스는 패들 조종 불가 (키보드 대비 너무 유리함). 터치/펜만
+  if (e.pointerType === 'mouse') return;
+  const side = game.mode === '1p' ? 'left' : (p.x < W / 2 ? 'left' : 'right');
+  pointers.set(e.pointerId, side);
+  touchTarget[side] = p.y;
+});
+window.addEventListener('pointermove', (e) => {
+  const p = toVirtual(e);
+  const side = pointers.get(e.pointerId);
+  if (side) { touchTarget[side] = p.y; return; }
+  if (isUiState() && e.pointerType === 'mouse') {
+    const hit = ui.hits.find((h) => inRect(p, h));
+    if (hit && hit.hover) hit.hover();
+  }
+});
+function releasePointer(e) {
+  const side = pointers.get(e.pointerId);
+  if (!side) return;
+  pointers.delete(e.pointerId);
+  if (![...pointers.values()].includes(side)) touchTarget[side] = null;
+}
+window.addEventListener('pointerup', releasePointer);
+window.addEventListener('pointercancel', releasePointer);
+window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+function clearPointers() {
+  pointers.clear();
+  touchTarget.left = touchTarget.right = null;
+}
+
+// iframe 안에서도 로드 직후 바로 키 입력을 받도록
+function focusGame() {
+  try { window.focus(); } catch (_) { /* 크로스 오리진 등 */ }
+  canvas.focus({ preventScroll: true });
+}
+
+// 창이 아니라 이 문서의 뷰포트(= iframe 크기) 기준
+function resize() {
+  const cw = document.documentElement.clientWidth || window.innerWidth;
+  const ch = document.documentElement.clientHeight || window.innerHeight;
+  const scale = Math.min(cw / W, ch / H);
+  const cssW = Math.max(1, Math.floor(W * scale));
+  const cssH = Math.max(1, Math.floor(H * scale));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.width = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  view.sx = canvas.width / W;
+  view.sy = canvas.height / H;
+}
+window.addEventListener('resize', resize);
+if (window.ResizeObserver) new ResizeObserver(resize).observe(document.documentElement);
+// 브라우저 확대/축소나 모니터 이동으로 devicePixelRatio가 바뀔 때
+(function watchDpr() {
+  if (!window.matchMedia) return;
+  const mq = matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+  const onChange = () => { resize(); watchDpr(); };
+  if (mq.addEventListener) mq.addEventListener('change', onChange, { once: true });
+})();
+
+function inRect(p, r) {
+  return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+}
+
+// =====================================================================
+// 3. 게임 로직
+// =====================================================================
+
+const game = {
+  state: 'menu',            // menu | countdown | play | scored | paused | over
+  prevState: null,          // 일시정지 전 상태
+  mode: '1p',               // '1p' | '2p'
+  difficulty: 'normal',
+  winScore: CONFIG.defaultWinScore,
+  score: { left: 0, right: 0 },
+  timer: 0,
+  countShown: 0,
+  serveDir: 1,              // +1 = 오른쪽으로, -1 = 왼쪽으로
+  rally: 0,
+  longestRally: 0,
+  startedAt: 0,
+};
+
+const PW = CONFIG.paddle.width;
+const PH = CONFIG.paddle.height;
+const BS = CONFIG.ball.size / 2;   // 공 반크기
+
+// dir: 공을 쳐내는 방향. vy: 이번 프레임 이동 속도(px/s)
+// flash/recoil/squash: 타격 연출용, 매 프레임 0으로 감쇠
+function makePaddle(x, dir) {
+  return { x, y: H / 2, dir, vy: 0, flash: 0, flashColor: THEME.fg, recoil: 0, squash: 0 };
+}
+const paddles = {
+  left:  makePaddle(CONFIG.paddle.margin + PW / 2, 1),
+  right: makePaddle(W - CONFIG.paddle.margin - PW / 2, -1),
+};
+
+// base: 랠리로 쌓이는 기본 속도, speed: 이번 타구의 실제 속도 (base × 타격 배율)
+const ball = {
+  x: W / 2, y: H / 2, vx: 0, vy: 0, base: 0, speed: 0,
+  smash: false, squash: 0, visible: false, trail: [], trailT: 0,
+};
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// 0(서브 속도) ~ 1(기본 속도 상한). 공 색, 잔상, 사운드 피치에 사용
+function ballHeat() {
+  return clamp((ball.speed - CONFIG.ball.startSpeed) / (CONFIG.ball.maxSpeed - CONFIG.ball.startSpeed), 0, 1);
+}
+
+function isUiState() {
+  return game.state === 'menu' || game.state === 'paused' || game.state === 'over';
+}
+function isInGame() {
+  return game.state === 'countdown' || game.state === 'play' || game.state === 'scored';
+}
+
+function startMatch() {
+  game.score.left = game.score.right = 0;
+  game.rally = game.longestRally = 0;
+  game.startedAt = performance.now();
+  game.serveDir = Math.random() < 0.5 ? -1 : 1;
+  paddles.left.y = paddles.right.y = H / 2;
+  clearPointers();
+  clearFx();
+  resetAI();
+  beginCountdown();
+}
+
+function beginCountdown() {
+  game.state = 'countdown';
+  game.timer = CONFIG.countdownStep * 3;
+  game.countShown = 3;
+  placeBall();
+  Sound.tick();
+}
+
+function placeBall() {
+  ball.x = W / 2;
+  ball.y = H / 2 + (Math.random() * 2 - 1) * H * 0.2;
+  ball.vx = ball.vy = 0;
+  ball.base = ball.speed = CONFIG.ball.startSpeed;
+  ball.smash = false;
+  ball.squash = 0;
+  ball.trail.length = 0;
+  ball.visible = true;
+}
+
+function serve() {
+  const a = (Math.random() * 2 - 1) * CONFIG.ball.serveAngle * Math.PI / 180;
+  ball.base = ball.speed = CONFIG.ball.startSpeed;
+  ball.smash = false;
+  ball.vx = game.serveDir * ball.speed * Math.cos(a);
+  ball.vy = ball.speed * Math.sin(a);
+  game.rally = 0;
+}
+
+function update(dt) {
+  if (game.state === 'menu' || game.state === 'paused') return;
+  updateFx(dt);
+  if (game.state === 'over') return;
+
+  // 히트스톱: 타격 순간 게임을 아주 잠깐 멈춰서 손맛을 줌
+  if (fx.hitStop > 0) { fx.hitStop -= dt; return; }
+
+  const ly = paddles.left.y, ry = paddles.right.y;
+  updatePaddle('left', dt);
+  if (game.mode === '2p') updatePaddle('right', dt);
+  else updateAI(dt);
+  if (dt > 0) {
+    paddles.left.vy = (paddles.left.y - ly) / dt;
+    paddles.right.vy = (paddles.right.y - ry) / dt;
+  }
+
+  if (game.state === 'countdown') {
+    game.timer -= dt;
+    const n = Math.ceil(game.timer / CONFIG.countdownStep);
+    if (game.timer <= 0) {
+      game.state = 'play';
+      serve();
+      Sound.go();
+    } else if (n !== game.countShown) {
+      game.countShown = n;
+      Sound.tick();
+    }
+  } else if (game.state === 'play') {
+    updateBall(dt);
+    if (ball.smash && game.state === 'play') emitSmashFire(dt);
+  } else if (game.state === 'scored') {
+    game.timer -= dt;
+    if (game.timer <= 0) {
+      if (game.score.left >= game.winScore || game.score.right >= game.winScore) endMatch();
+      else beginCountdown();
+    }
+  }
+  updateTrail(dt);
+}
+
+function updatePaddle(side, dt) {
+  const p = paddles[side];
+  let up, down;
+  if (side === 'left') {
+    up = keys.has('KeyW') || (game.mode === '1p' && keys.has('ArrowUp'));
+    down = keys.has('KeyS') || (game.mode === '1p' && keys.has('ArrowDown'));
+  } else {
+    up = keys.has('ArrowUp');
+    down = keys.has('ArrowDown');
+  }
+  const dir = (down ? 1 : 0) - (up ? 1 : 0);
+  if (dir !== 0) {
+    p.y += dir * CONFIG.paddle.speed * dt;
+  } else if (touchTarget[side] !== null) {
+    moveToward(p, touchTarget[side], CONFIG.paddle.touchSpeed * dt);
+  }
+  clampPaddle(p);
+}
+
+function moveToward(p, targetY, maxStep) {
+  const d = targetY - p.y;
+  p.y += Math.sign(d) * Math.min(Math.abs(d), maxStep);
+}
+
+function clampPaddle(p) {
+  p.y = Math.max(PH / 2, Math.min(H - PH / 2, p.y));
+}
+
+// 터널링 방지: 한 서브스텝 이동 거리가 공 반크기를 넘지 않게 나누고,
+// 각 스텝에서 패들 앞면을 "지나쳤는지"를 선분으로 판정한다.
+function updateBall(dt) {
+  const steps = Math.max(1, Math.ceil(ball.speed * dt / BS));
+  const h = dt / steps;
+  for (let i = 0; i < steps; i++) {
+    if (stepBall(h)) return;
+  }
+}
+
+// 득점이 나면 true
+function stepBall(h) {
+  const px = ball.x, py = ball.y;
+  let nx = px + ball.vx * h;
+  let ny = py + ball.vy * h;
+
+  if (ny - BS < 0) {
+    ny = 2 * BS - ny;
+    ball.vy = Math.abs(ball.vy);
+    wallHit(nx, 0, 1);
+  } else if (ny + BS > H) {
+    ny = 2 * (H - BS) - ny;
+    ball.vy = -Math.abs(ball.vy);
+    wallHit(nx, H, -1);
+  }
+
+  if (ball.vx < 0) {
+    const p = paddles.left;
+    const face = p.x + PW / 2;
+    if (px - BS >= face && nx - BS < face) {
+      const t = (px - BS - face) / (px - nx);
+      const yAt = py + (ny - py) * t;
+      if (Math.abs(yAt - p.y) <= PH / 2 + BS) { bounce(p, 1, face + BS, yAt); return false; }
+    }
+  } else if (ball.vx > 0) {
+    const p = paddles.right;
+    const face = p.x - PW / 2;
+    if (px + BS <= face && nx + BS > face) {
+      const t = (face - px - BS) / (nx - px);
+      const yAt = py + (ny - py) * t;
+      if (Math.abs(yAt - p.y) <= PH / 2 + BS) { bounce(p, -1, face - BS, yAt); return false; }
+    }
+  }
+
+  ball.x = nx;
+  ball.y = ny;
+
+  if (ball.x + BS < 0) { pointScored('right'); return true; }
+  if (ball.x - BS > W) { pointScored('left'); return true; }
+  return false;
+}
+
+// 맞은 위치에 따라 각도 결정: 가운데 0°, 끝 ±maxBounceAngle.
+// 끝으로 칠수록, 패들을 움직이면서 칠수록 세게 나감 (CONFIG.hit 참고)
+function bounce(p, dir, x, y) {
+  const H_ = CONFIG.hit;
+  const rel = clamp((y - p.y) / (PH / 2 + BS), -1, 1);
+  const edge = clamp((Math.abs(rel) - H_.edgeStart) / (1 - H_.edgeStart), 0, 1);
+  const motion = clamp(Math.abs(p.vy) / CONFIG.paddle.speed, 0, 1);
+  const power = edge * (0.4 + 0.6 * motion);
+  const smash = power >= H_.smashPower;
+
+  const spin = Math.sign(p.vy) * motion * H_.spinAngle;
+  const deg = clamp(rel * CONFIG.ball.maxBounceAngle + spin, -H_.maxAngle, H_.maxAngle);
+  const a = deg * Math.PI / 180;
+
+  ball.base = Math.min(ball.base + CONFIG.ball.speedUpPerHit, CONFIG.ball.maxSpeed);
+  const mul = H_.centerMul + H_.edgeMul * edge + H_.powerMul * power + (smash ? H_.smashBonus : 0);
+  ball.speed = Math.min(ball.base * mul, CONFIG.ball.smashMaxSpeed);
+  ball.vx = dir * ball.speed * Math.cos(a);
+  ball.vy = ball.speed * Math.sin(a);
+  ball.x = x;
+  ball.y = y;
+  ball.smash = smash;
+  game.rally++;
+  game.longestRally = Math.max(game.longestRally, game.rally);
+
+  paddleHitFx(p, x - dir * BS, y, power, smash);
+  Sound.paddle(power, ballHeat(), game.rally);
+  if (smash) Sound.smash();
+}
+
+function wallHit(x, y, dirY) {
+  const heat = ballHeat();
+  const color = ball.smash ? THEME.hot : THEME.fg;
+  burst(x, y, dirY > 0 ? Math.PI / 2 : -Math.PI / 2, 2.2, 5 + Math.round(heat * 6) + (ball.smash ? 8 : 0), 380, color);
+  ring(x, y, 34 + heat * 30, color, 2);
+  addShake(1.5 + heat * 3 + (ball.smash ? 4 : 0), 0.08);
+  Sound.wall(heat);
+}
+
+function pointScored(side) {
+  const x = clamp(ball.x, 0, W);
+  const color = ball.smash ? THEME.hot : THEME.accent;
+  burst(x, ball.y, side === 'left' ? Math.PI : 0, 2.6, 60, 900, color, 2.2);
+  burst(x, ball.y, side === 'left' ? Math.PI : 0, 1.2, 24, 1400, THEME.fg, 1.6);
+  ring(x, ball.y, 300, color, 8);
+  ring(x, ball.y, 160, THEME.fg, 4);
+  addShake(ball.smash ? 20 : 13, 0.35);
+  fx.flash = 0.8;
+  fx.flashColor = color;
+
+  game.score[side]++;
+  game.state = 'scored';
+  game.timer = CONFIG.scorePause;
+  game.serveDir = side === 'left' ? 1 : -1;   // 점수를 잃은 쪽으로 서브
+  ball.visible = false;
+  ball.trail.length = 0;
+  Sound.score(ball.smash);
+}
+
+function endMatch() {
+  const winner = game.score.left > game.score.right ? 'left' : 'right';
+  game.state = 'over';
+  ui.listIndex = 0;
+  ball.visible = false;
+  clearPointers();
+  if (game.mode === '1p' && winner === 'right') Sound.lose();
+  else Sound.win();
+
+  onGameOver({
+    mode: game.mode,
+    difficulty: game.mode === '1p' ? game.difficulty : null,
+    winScore: game.winScore,
+    score: { left: game.score.left, right: game.score.right },
+    winner,
+    playerWon: game.mode === '1p' ? winner === 'left' : null,
+    longestRally: game.longestRally,
+    durationSec: Math.round((performance.now() - game.startedAt) / 1000),
+  });
+}
+
+function pauseGame() {
+  if (!isInGame()) return;
+  game.prevState = game.state;
+  game.state = 'paused';
+  ui.listIndex = 0;
+  clearPointers();
+}
+
+function resumeGame() {
+  if (game.state !== 'paused') return;
+  game.state = game.prevState;
+}
+
+function toMenu() {
+  game.state = 'menu';
+  ball.visible = false;
+  clearPointers();
+  clearFx();
+}
+
+function updateTrail(dt) {
+  if (game.state !== 'play') return;
+  ball.trailT += dt;
+  while (ball.trailT >= CONFIG.trail.interval) {
+    ball.trailT -= CONFIG.trail.interval;
+    ball.trail.push({ x: ball.x, y: ball.y });
+    if (ball.trail.length > CONFIG.trail.length) ball.trail.shift();
+  }
+}
+
+// =====================================================================
+// 3-1. 타격 이펙트 (파티클, 충격파, 흔들림, 플래시, 히트스톱)
+// =====================================================================
+
+const fx = {
+  particles: [],   // { x, y, vx, vy, life, max, size, color }
+  rings: [],       // { x, y, r, life, max, color, width }
+  texts: [],       // { x, y, str, life, max, color, size }
+  shakeT: 0, shakeDur: 1, shakeMag: 0,
+  flash: 0, flashColor: THEME.fg,
+  hitStop: 0,
+};
+
+function clearFx() {
+  fx.particles.length = fx.rings.length = fx.texts.length = 0;
+  fx.shakeT = fx.flash = fx.hitStop = 0;
+}
+
+// 지금 남아있는 흔들림보다 셀 때만 덮어씀
+function addShake(mag, dur) {
+  const cur = fx.shakeT > 0 ? fx.shakeMag * fx.shakeT / fx.shakeDur : 0;
+  if (mag < cur) return;
+  fx.shakeMag = mag;
+  fx.shakeDur = fx.shakeT = dur;
+}
+
+// angle 방향으로 ±spread/2 범위에 파편을 뿌림
+function burst(x, y, angle, spread, count, speed, color, size = 1) {
+  for (let i = 0; i < count; i++) {
+    if (fx.particles.length >= CONFIG.fx.maxParticles) fx.particles.shift();
+    const a = angle + (Math.random() - 0.5) * spread;
+    const s = speed * (0.3 + Math.random() * 0.7);
+    const life = 0.25 + Math.random() * 0.35;
+    fx.particles.push({
+      x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      life, max: life, size: (3 + Math.random() * 5) * size, color,
+    });
+  }
+}
+
+function ring(x, y, r, color, width) {
+  fx.rings.push({ x, y, r, life: 0.32, max: 0.32, color, width });
+}
+
+function popText(str, x, y, color, size) {
+  fx.texts.push({ x, y, str, life: 0.7, max: 0.7, color, size });
+}
+
+function paddleHitFx(p, x, y, power, smash) {
+  const color = smash ? THEME.hot : (power > 0.25 ? THEME.warm : THEME.fg);
+  const out = p.dir > 0 ? 0 : Math.PI;
+
+  fx.hitStop = smash ? CONFIG.fx.hitStopSmash : CONFIG.fx.hitStop * (1 + power * 0.6);
+  burst(x, y, out, 1.6, smash ? 36 : 8 + Math.round(power * 16), smash ? 1100 : 500 + power * 400, color, smash ? 1.4 : 1);
+  ring(x, y, smash ? 150 : 55 + power * 50, color, smash ? 7 : 3);
+  addShake(smash ? 16 : 2.5 + power * 6, smash ? 0.3 : 0.12);
+
+  p.flash = 1;
+  p.flashColor = color;
+  p.recoil = 5 + power * 10 + (smash ? 8 : 0);
+  p.squash = 1;
+  ball.squash = 1;
+
+  if (smash) {
+    burst(x, y, out, 0.5, 14, 1600, THEME.fg, 0.8);
+    ring(x, y, 260, THEME.warm, 3);
+    fx.flash = 1;
+    fx.flashColor = THEME.hot;
+    popText(TEXT.smash, x + p.dir * 120, y - 60, THEME.hot, 64);
+  }
+}
+
+// 스매시 공 뒤로 불꽃
+function emitSmashFire(dt) {
+  const n = Math.max(1, Math.round(dt * 150));
+  const back = Math.atan2(-ball.vy, -ball.vx);
+  for (let i = 0; i < n; i++) {
+    if (fx.particles.length >= CONFIG.fx.maxParticles) fx.particles.shift();
+    const a = back + (Math.random() - 0.5) * 0.9;
+    const s = 80 + Math.random() * 200;
+    const life = 0.15 + Math.random() * 0.2;
+    fx.particles.push({
+      x: ball.x + (Math.random() - 0.5) * BS, y: ball.y + (Math.random() - 0.5) * BS,
+      vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      life, max: life, size: 4 + Math.random() * 6, color: Math.random() < 0.5 ? THEME.hot : THEME.warm,
+    });
+  }
+}
+
+function updateFx(dt) {
+  if (fx.shakeT > 0) fx.shakeT = Math.max(0, fx.shakeT - dt);
+  if (fx.flash > 0) fx.flash = Math.max(0, fx.flash - dt * 5);
+  for (const p of [paddles.left, paddles.right]) {
+    p.flash = Math.max(0, p.flash - dt * 6);
+    p.recoil *= Math.exp(-dt * 18);
+    p.squash = Math.max(0, p.squash - dt * 7);
+  }
+  ball.squash = Math.max(0, ball.squash - dt * 8);
+
+  // 히트스톱 중엔 파편도 거의 멈춤
+  const t = fx.hitStop > 0 ? dt * 0.15 : dt;
+  const drag = Math.exp(-t * 5);
+  for (let i = fx.particles.length - 1; i >= 0; i--) {
+    const q = fx.particles[i];
+    q.x += q.vx * t; q.y += q.vy * t;
+    q.vx *= drag; q.vy *= drag;
+    q.life -= t;
+    if (q.life <= 0) fx.particles.splice(i, 1);
+  }
+  for (let i = fx.rings.length - 1; i >= 0; i--) {
+    fx.rings[i].life -= t;
+    if (fx.rings[i].life <= 0) fx.rings.splice(i, 1);
+  }
+  for (let i = fx.texts.length - 1; i >= 0; i--) {
+    const tx = fx.texts[i];
+    tx.life -= t;
+    tx.y -= 60 * t;
+    if (tx.life <= 0) fx.texts.splice(i, 1);
+  }
+}
+
+// =====================================================================
+// 4. AI (오른쪽 패들)
+// =====================================================================
+
+const ai = { target: H / 2, timer: 0, error: 0, tracking: false };
+
+function resetAI() {
+  ai.target = H / 2;
+  ai.timer = 0;
+  ai.error = 0;
+  ai.tracking = false;
+}
+
+function updateAI(dt) {
+  const L = AI_LEVELS[game.difficulty];
+  const p = paddles.right;
+  const incoming = game.state === 'play' && ball.vx > 0;
+
+  // 공이 방향을 바꾸면 reaction 만큼 지난 뒤에야 새 목표를 잡음
+  if (incoming !== ai.tracking) {
+    ai.tracking = incoming;
+    ai.timer = L.reaction;
+    if (incoming) {
+      const speedFactor = 0.5 + Math.min(1.2, ball.speed / CONFIG.ball.maxSpeed);
+      ai.error = (Math.random() * 2 - 1) * L.error * speedFactor;
+    }
+  }
+
+  ai.timer -= dt;
+  if (ai.timer <= 0) {
+    ai.timer += L.reaction;
+    ai.target = incoming ? predictBallY(p.x - PW / 2) + ai.error : H / 2;
+  }
+
+  const speed = incoming ? L.maxSpeed : L.maxSpeed * L.idleSpeed;
+  if (Math.abs(ai.target - p.y) > 2) moveToward(p, ai.target, speed * dt);
+  clampPaddle(p);
+}
+
+// 벽 반사를 펼쳐서 공이 faceX에 닿을 때의 y를 계산
+function predictBallY(faceX) {
+  if (ball.vx <= 0) return H / 2;
+  const t = (faceX - BS - ball.x) / ball.vx;
+  if (t <= 0) return ball.y;
+  const span = H - 2 * BS;
+  let m = (ball.y + ball.vy * t - BS) % (2 * span);
+  if (m < 0) m += 2 * span;
+  return BS + (m <= span ? m : 2 * span - m);
+}
+
+// =====================================================================
+// 5. 렌더링
+// =====================================================================
+
+const PAUSE_BUTTON = { x: W - 88, y: 22, w: 64, h: 64 };
+
+function setFont(size, weight = 'bold') {
+  ctx.font = `${weight} ${size}px ${THEME.font}`;
+}
+
+function text(str, x, y, size, color, align = 'center', weight = 'bold') {
+  setFont(size, weight);
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(str, x, y);
+}
+
+// 버튼/옵션 박스. x, y는 좌상단
+function box(x, y, w, h, label, { filled = false, color = THEME.fg, textColor, size = 28 } = {}) {
+  if (filled) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  } else {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  }
+  text(label, x + w / 2, y + h / 2 + 1, size, textColor || (filled ? THEME.bg : color));
+}
+
+function addHit(x, y, w, h, action, hover) {
+  ui.hits.push({ x, y, w, h, action, hover });
+}
+
+function render() {
+  ctx.setTransform(view.sx, 0, 0, view.sy, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = THEME.bg;
+  ctx.fillRect(0, 0, W, H);
+  ui.hits.length = 0;
+
+  if (game.state === 'menu') { drawMenu(); return; }
+
+  ctx.save();
+  if (fx.shakeT > 0) {
+    const m = fx.shakeMag * (fx.shakeT / fx.shakeDur);
+    ctx.translate((Math.random() * 2 - 1) * m, (Math.random() * 2 - 1) * m);
+  }
+  drawField();
+  drawFx();
+  drawPaddlesAndBall();
+  drawFxTexts();
+  ctx.restore();
+
+  if (fx.flash > 0) {
+    ctx.globalAlpha = fx.flash * 0.18;
+    ctx.fillStyle = fx.flashColor;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+
+  drawHud();
+  if (game.state === 'countdown') drawCountdown();
+  if (game.state === 'paused') drawPause();
+  if (game.state === 'over') drawOver();
+}
+
+function drawField() {
+  ctx.fillStyle = THEME.dim;
+  for (let y = 12; y < H; y += 40) ctx.fillRect(W / 2 - 3, y, 6, 22);
+  text(String(game.score.left), W / 2 - 170, 120, 120, THEME.fg);
+  text(String(game.score.right), W / 2 + 170, 120, 120, THEME.fg);
+  if (game.rally >= 4 && game.state === 'play') {
+    text(`${TEXT.rally} ${game.rally}`, W / 2, H - 40, 22, THEME.dim);
+  }
+}
+
+function hexRgb(h) {
+  const n = parseInt(h.slice(1), 16);
+  return [n >> 16, (n >> 8) & 255, n & 255];
+}
+function mixColor(a, b, t) {
+  const A = hexRgb(a), B = hexRgb(b);
+  return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`;
+}
+
+// shadowBlur는 변환 영향을 안 받으므로 가상 해상도 기준으로 환산
+function glow(color, blur) {
+  ctx.shadowColor = color;
+  ctx.shadowBlur = blur * view.sx;
+}
+function noGlow() {
+  ctx.shadowBlur = 0;
+}
+
+function drawPaddlesAndBall() {
+  for (const p of [paddles.left, paddles.right]) {
+    const w = PW * (1 - 0.3 * p.squash);
+    const h = PH * (1 + 0.1 * p.squash);
+    const x = p.x - p.dir * p.recoil;
+    if (p.flash > 0) glow(p.flashColor, 30 * p.flash);
+    ctx.fillStyle = p.flash > 0 ? mixColor(THEME.fg, p.flashColor, p.flash) : THEME.fg;
+    ctx.fillRect(x - w / 2, p.y - h / 2, w, h);
+    noGlow();
+  }
+  if (!ball.visible) return;
+
+  const heat = ballHeat();
+  const color = ball.smash ? THEME.hot : mixColor(THEME.fg, THEME.warm, heat);
+
+  // 빠를수록 잔상이 길어짐
+  const n = ball.trail.length;
+  const shown = ball.smash ? n : Math.min(n, Math.round(4 + heat * 10));
+  ctx.fillStyle = color;
+  for (let i = n - shown; i < n; i++) {
+    const k = (i - (n - shown) + 1) / (shown + 1);
+    const s = BS * (0.4 + 0.6 * k);
+    ctx.globalAlpha = (ball.smash ? 0.45 : 0.3) * k;
+    ctx.fillRect(ball.trail[i].x - s, ball.trail[i].y - s, s * 2, s * 2);
+  }
+  ctx.globalAlpha = 1;
+
+  // 진행 방향으로 늘어나고, 막 맞았을 땐 찌그러짐
+  const v = Math.hypot(ball.vx, ball.vy);
+  const stretch = 1 + Math.min(0.6, v / CONFIG.ball.smashMaxSpeed * 0.6);
+  const sx = stretch * (1 - 0.4 * ball.squash);
+  const sy = (1 / stretch) * (1 + 0.4 * ball.squash);
+  ctx.save();
+  ctx.translate(ball.x, ball.y);
+  ctx.rotate(Math.atan2(ball.vy, ball.vx));
+  ctx.scale(sx, sy);
+  if (heat > 0.15 || ball.smash) glow(color, ball.smash ? 28 : 18 * heat);
+  ctx.fillRect(-BS, -BS, BS * 2, BS * 2);
+  noGlow();
+  ctx.restore();
+}
+
+function drawFx() {
+  ctx.globalCompositeOperation = 'lighter';
+  for (const q of fx.particles) {
+    const k = q.life / q.max;
+    const s = q.size * (0.4 + 0.6 * k);
+    ctx.globalAlpha = k;
+    ctx.fillStyle = q.color;
+    ctx.fillRect(q.x - s / 2, q.y - s / 2, s, s);
+  }
+  for (const r of fx.rings) {
+    const k = r.life / r.max;
+    const e = 1 - k * k;   // ease-out
+    ctx.globalAlpha = k * 0.9;
+    ctx.strokeStyle = r.color;
+    ctx.lineWidth = r.width * k + 0.5;
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, 6 + r.r * e, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+}
+
+function drawFxTexts() {
+  for (const t of fx.texts) {
+    const k = t.life / t.max;
+    const pop = 1 + 0.5 * Math.max(0, (k - 0.8) / 0.2);   // 처음에 크게 튀어나왔다가 줄어듦
+    ctx.globalAlpha = Math.min(1, k * 2);
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.scale(pop, pop);
+    glow(t.color, 20);
+    text(t.str, 0, 0, t.size, t.color);
+    noGlow();
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawHud() {
+  if (game.mode === '1p') {
+    ctx.fillStyle = THEME.bg;
+    ctx.fillRect(W / 2 - 80, 10, 160, 40);
+    text(`AI · ${AI_LEVELS[game.difficulty].label}`, W / 2, 30, 20, THEME.dim);
+  }
+  if (isInGame()) {
+    const b = PAUSE_BUTTON;
+    ctx.fillStyle = THEME.dim;
+    ctx.fillRect(b.x + 20, b.y + 18, 8, 28);
+    ctx.fillRect(b.x + 36, b.y + 18, 8, 28);
+  }
+  if (Sound.muted) text(TEXT.muted, PAUSE_BUTTON.x - 16, PAUSE_BUTTON.y + 32, 20, THEME.dim, 'right');
+}
+
+function drawCountdown() {
+  const n = Math.max(1, Math.ceil(game.timer / CONFIG.countdownStep));
+  const frac = (game.timer / CONFIG.countdownStep) % 1 || 1;
+  ctx.fillStyle = THEME.bg;
+  ctx.fillRect(W / 2 - 90, H / 2 - 110, 180, 220);
+  ctx.globalAlpha = 0.4 + 0.6 * frac;
+  text(String(n), W / 2, H / 2 + 8, 200, THEME.fg);
+  ctx.globalAlpha = 1;
+  // 서브 위치가 숫자 상자에 가리지 않도록 공은 위에 다시 그림
+  if (ball.visible) {
+    ctx.fillStyle = THEME.fg;
+    ctx.fillRect(ball.x - BS, ball.y - BS, BS * 2, BS * 2);
+  }
+}
+
+function drawButtonList(items, top) {
+  const bw = 400, bh = 72, gap = 20;
+  items.forEach((item, i) => {
+    const x = W / 2 - bw / 2;
+    const y = top + i * (bh + gap);
+    const focused = ui.listIndex === i;
+    box(x, y, bw, bh, item.label, { filled: focused, color: focused ? THEME.accent : THEME.fg });
+    addHit(x, y, bw, bh, item.action, () => { ui.listIndex = i; });
+  });
+}
+
+function drawPause() {
+  ctx.fillStyle = THEME.overlay;
+  ctx.fillRect(0, 0, W, H);
+  text(TEXT.paused, W / 2, 290, 90, THEME.fg);
+  drawButtonList(PAUSE_ITEMS, 400);
+}
+
+function drawOver() {
+  ctx.fillStyle = THEME.overlay;
+  ctx.fillRect(0, 0, W, H);
+  const leftWon = game.score.left > game.score.right;
+  const title = game.mode === '1p'
+    ? (leftWon ? TEXT.youWin : TEXT.aiWins)
+    : (leftWon ? TEXT.leftWins : TEXT.rightWins);
+  text(title, W / 2, 250, 110, leftWon || game.mode === '2p' ? THEME.accent : THEME.fg);
+  text(`${game.score.left}  :  ${game.score.right}`, W / 2, 380, 80, THEME.fg);
+  const sub = game.mode === '1p'
+    ? `1P vs AI · ${AI_LEVELS[game.difficulty].label} · FIRST TO ${game.winScore}`
+    : `2P LOCAL · FIRST TO ${game.winScore}`;
+  text(sub, W / 2, 460, 24, THEME.dim);
+  drawButtonList(OVER_ITEMS, 540);
+}
+
+function drawMenu() {
+  text(TEXT.title, W / 2, 170, 150, THEME.fg);
+
+  const rows = menuRows();
+  const labelX = 400, optX = 640, oh = 64;
+
+  const drawRow = (row, y, label, options, optW, disabled) => {
+    const focused = !disabled && ui.menuRow === row;
+    ctx.globalAlpha = disabled ? 0.25 : 1;
+    if (focused) text('>', labelX - 40, y, 30, THEME.accent, 'left');
+    text(label, labelX, y, 28, focused ? THEME.fg : THEME.dim, 'left');
+    options.forEach((opt, i) => {
+      const x = optX + i * (optW + 24);
+      const top = y - oh / 2;
+      box(x, top, optW, oh, opt.label, {
+        filled: opt.selected,
+        color: opt.selected && focused ? THEME.accent : (opt.selected ? THEME.fg : THEME.dim),
+        textColor: opt.selected ? THEME.bg : THEME.fg,
+      });
+      if (!disabled) addHit(x, top, optW, oh, () => { ui.menuRow = row; opt.pick(); }, () => { ui.menuRow = row; });
+    });
+    ctx.globalAlpha = 1;
+  };
+
+  drawRow('mode', 330, TEXT.mode, [
+    { label: TEXT.mode1p, selected: game.mode === '1p', pick: () => setMode('1p') },
+    { label: TEXT.mode2p, selected: game.mode === '2p', pick: () => setMode('2p') },
+  ], 280, false);
+
+  drawRow('difficulty', 430, TEXT.difficulty, AI_ORDER.map((d) => ({
+    label: AI_LEVELS[d].label, selected: game.difficulty === d, pick: () => { game.difficulty = d; },
+  })), 180, !rows.includes('difficulty'));
+
+  drawRow('win', 530, TEXT.firstTo, CONFIG.winScores.map((s) => ({
+    label: String(s), selected: game.winScore === s, pick: () => { game.winScore = s; },
+  })), 120, false);
+
+  const sw = 340, sh = 80, sx = W / 2 - sw / 2, sy = 625;
+  const startFocused = ui.menuRow === 'start';
+  box(sx, sy, sw, sh, TEXT.start, { filled: startFocused, color: startFocused ? THEME.accent : THEME.fg, size: 34 });
+  addHit(sx, sy, sw, sh, startMatch, () => { ui.menuRow = 'start'; });
+
+  TEXT.help.forEach((line, i) => text(line, W / 2, 762 + i * 34, 21, i === 2 ? THEME.warm : THEME.dim, 'center', 'normal'));
+
+  const soundLabel = Sound.muted ? TEXT.soundOff : TEXT.soundOn;
+  text(soundLabel, W - 40, 44, 20, THEME.dim, 'right');
+  addHit(W - 300, 14, 280, 60, () => Sound.toggleMute());
+}
+
+// =====================================================================
+// 6. 사운드 (Web Audio로 직접 생성)
+// =====================================================================
+
+// 랠리가 이어질수록 타격음 위에 얹히는 음이 펜타토닉으로 한 칸씩 올라감
+const RALLY_NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760];
+
+const Sound = {
+  ctx: null,
+  out: null,       // 드라이 버스 → 컴프레서
+  verb: null,      // 리버브 센드
+  drive: null,     // 스매시용 디스토션 → out
+  noiseBuf: null,
+  muted: (() => { try { return localStorage.getItem(CONFIG.storageKey) === '1'; } catch (_) { return false; } })(),
+
+  // 자동재생 차단 대응: 첫 사용자 입력에서 호출
+  unlock() {
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      return;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { this.ctx = new AC(); this.build(); } catch (_) { this.ctx = null; }
+  },
+
+  build() {
+    const c = this.ctx;
+    const comp = c.createDynamicsCompressor();
+    comp.threshold.value = -16;
+    comp.knee.value = 10;
+    comp.ratio.value = 5;
+    comp.attack.value = 0.002;
+    comp.release.value = 0.12;
+    comp.connect(c.destination);
+
+    this.out = c.createGain();
+    this.out.gain.value = 0.9;
+    this.out.connect(comp);
+
+    // 짧은 룸 리버브: 지수 감쇠하는 노이즈를 임펄스 응답으로
+    const len = Math.floor(c.sampleRate * 0.8);
+    const ir = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.5);
+    }
+    const conv = c.createConvolver();
+    conv.buffer = ir;
+    const wet = c.createGain();
+    wet.gain.value = 0.25;
+    this.verb = c.createGain();
+    this.verb.connect(conv).connect(wet).connect(comp);
+
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh((i / 511.5 - 1) * 4);
+    this.drive = c.createWaveShaper();
+    this.drive.curve = curve;
+    this.drive.connect(this.out);
+
+    this.noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
+    const nd = this.noiseBuf.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  },
+
+  toggleMute() {
+    this.muted = !this.muted;
+    try { localStorage.setItem(CONFIG.storageKey, this.muted ? '1' : '0'); } catch (_) { /* 저장 불가 환경 */ }
+  },
+
+  ready() {
+    return !this.muted && this.ctx && this.ctx.state !== 'closed' && this.out;
+  },
+
+  // 엔벨로프(gain)를 출력 버스와 리버브 센드에 연결
+  envelope(t0, dur, vol, attack, verb, drive) {
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(vol, t0 + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    gain.connect(drive ? this.drive : this.out);
+    if (verb > 0) {
+      const send = this.ctx.createGain();
+      send.gain.value = verb;
+      gain.connect(send).connect(this.verb);
+    }
+    return gain;
+  },
+
+  tone(freq, dur, { type = 'square', vol = 0.07, delay = 0, slideTo = 0, attack = 0.002, verb = 0, drive = false, detune = 0 } = {}) {
+    if (!this.ready()) return;
+    const t0 = this.ctx.currentTime + delay;
+    const osc = this.ctx.createOscillator();
+    osc.type = type;
+    osc.detune.value = detune;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+    osc.connect(this.envelope(t0, dur, vol, attack, verb, drive));
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  },
+
+  noise(dur, { vol = 0.1, delay = 0, filter = 'bandpass', freq = 2000, q = 1, slideTo = 0, attack = 0.001, verb = 0, drive = false } = {}) {
+    if (!this.ready()) return;
+    const t0 = this.ctx.currentTime + delay;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    const f = this.ctx.createBiquadFilter();
+    f.type = filter;
+    f.Q.value = q;
+    f.frequency.setValueAtTime(freq, t0);
+    if (slideTo) f.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
+    src.connect(f).connect(this.envelope(t0, dur, vol, attack, verb, drive));
+    src.start(t0, Math.random() * 0.5);
+    src.stop(t0 + dur + 0.02);
+  },
+
+  // power: 0~1 타격 세기, heat: 0~1 공 속도, rally: 현재 랠리 수
+  paddle(power = 0, heat = 0, rally = 1) {
+    const v = 0.65 + 0.6 * power;
+    this.noise(0.03, { vol: 0.35 * v, filter: 'bandpass', freq: 2400 + 1600 * power, q: 1.4 });   // 탁
+    this.noise(0.08, { vol: 0.12 * v, filter: 'lowpass', freq: 900, slideTo: 200 });               // 공기
+    this.tone(210 + 60 * heat, 0.14, { type: 'sine', vol: 0.5 * v, slideTo: 60 });                   // 쿵
+    const note = RALLY_NOTES[Math.min(rally - 1, RALLY_NOTES.length - 1)];
+    this.tone(note, 0.12, { type: 'square', vol: 0.05, verb: 0.5 });
+    this.tone(note * 1.5, 0.1, { type: 'triangle', vol: 0.04, verb: 0.6, detune: 6 });
+  },
+  smash() {
+    this.tone(150, 0.45, { type: 'sine', vol: 0.7, slideTo: 32 });                                   // 붐
+    this.noise(0.16, { vol: 0.4, filter: 'highpass', freq: 1500, drive: true, verb: 0.5 });           // 크랙
+    this.noise(0.5, { vol: 0.22, filter: 'bandpass', freq: 5000, slideTo: 250, q: 0.7, verb: 0.8, delay: 0.02 }); // 휘익
+    this.tone(1800, 0.3, { type: 'sawtooth', vol: 0.07, slideTo: 220, drive: true, verb: 0.7 });
+    this.tone(90, 0.25, { type: 'square', vol: 0.12, slideTo: 40, drive: true });
+  },
+  wall(heat = 0) {
+    const f = 340 + 260 * heat;
+    this.noise(0.022, { vol: 0.16, filter: 'bandpass', freq: 4200, q: 2 });
+    this.tone(f, 0.07, { type: 'triangle', vol: 0.14, slideTo: f * 0.6, verb: 0.3 });
+    this.tone(120, 0.06, { type: 'sine', vol: 0.18, slideTo: 60 });
+  },
+  tick() {
+    this.tone(660, 0.07, { type: 'square', vol: 0.045, verb: 0.5 });
+    this.tone(1320, 0.05, { type: 'sine', vol: 0.04 });
+  },
+  go() {
+    this.tone(880, 0.16, { type: 'square', vol: 0.05, verb: 0.6 });
+    this.tone(1320, 0.28, { type: 'triangle', vol: 0.06, delay: 0.05, verb: 0.7 });
+    this.noise(0.25, { vol: 0.06, filter: 'highpass', freq: 3000, slideTo: 8000, verb: 0.5 });
+  },
+  score(big = false) {
+    this.tone(120, 0.7, { type: 'sine', vol: 0.8, slideTo: 30 });
+    this.noise(0.6, { vol: 0.3, filter: 'lowpass', freq: 4000, slideTo: 150, drive: true, verb: 0.7 });
+    this.tone(600, 0.5, { type: 'sawtooth', vol: 0.06, slideTo: 120, verb: 0.8 });
+    this.tone(605, 0.5, { type: 'sawtooth', vol: 0.05, slideTo: 118, verb: 0.8, detune: 12 });
+    if (big) this.noise(0.12, { vol: 0.35, filter: 'highpass', freq: 2000, drive: true, verb: 0.6 });
+  },
+  win() {
+    [523, 659, 784, 1047].forEach((f, i) => {
+      this.tone(f, 0.22, { type: 'square', vol: 0.05, delay: i * 0.1, verb: 0.6 });
+      this.tone(f, 0.22, { type: 'sawtooth', vol: 0.03, delay: i * 0.1, verb: 0.6, detune: 10 });
+    });
+    [1047, 1319, 1568].forEach((f) => this.tone(f, 0.9, { type: 'triangle', vol: 0.06, delay: 0.42, attack: 0.02, verb: 0.9 }));
+  },
+  lose() {
+    [392, 330, 262].forEach((f, i) => this.tone(f, 0.24, { type: 'triangle', vol: 0.12, delay: i * 0.17, verb: 0.6 }));
+    this.tone(196, 0.9, { type: 'sawtooth', vol: 0.05, delay: 0.51, slideTo: 150, verb: 0.8 });
+    this.tone(98, 0.9, { type: 'sine', vol: 0.25, delay: 0.51, slideTo: 70 });
+  },
+};
+
+// =====================================================================
+// 7. UI 상태 (메뉴 포커스, 키 처리, 포털 연동 지점)
+// =====================================================================
+
+const ui = {
+  menuRow: 'start',   // 메뉴에서 키보드 포커스가 있는 줄
+  listIndex: 0,       // 일시정지/결과 화면 버튼 포커스
+  hits: [],           // 직전 프레임에 그린 클릭 영역
+};
+
+const PAUSE_ITEMS = [
+  { label: TEXT.resume, action: resumeGame },
+  { label: TEXT.restart, action: startMatch },
+  { label: TEXT.menu, action: toMenu },
+];
+const OVER_ITEMS = [
+  { label: TEXT.playAgain, action: startMatch },
+  { label: TEXT.menu, action: toMenu },
+];
+
+const UP_KEYS = ['ArrowUp', 'KeyW'];
+const DOWN_KEYS = ['ArrowDown', 'KeyS'];
+const LEFT_KEYS = ['ArrowLeft', 'KeyA'];
+const RIGHT_KEYS = ['ArrowRight', 'KeyD'];
+const OK_KEYS = ['Enter', 'NumpadEnter', 'Space'];
+
+function menuRows() {
+  return game.mode === '1p' ? ['mode', 'difficulty', 'win', 'start'] : ['mode', 'win', 'start'];
+}
+
+function setMode(mode) {
+  game.mode = mode;
+}
+
+function onKey(code, repeat) {
+  if (code === 'KeyM') { if (!repeat) Sound.toggleMute(); return; }
+
+  if (game.state === 'menu') { menuKey(code, repeat); return; }
+
+  if (game.state === 'paused') {
+    if (repeat) return;
+    if (code === 'KeyP' || code === 'Escape') resumeGame();
+    else if (code === 'KeyR') startMatch();
+    else listKey(code, PAUSE_ITEMS);
+    return;
+  }
+
+  if (game.state === 'over') {
+    if (repeat) return;
+    if (code === 'KeyR') startMatch();
+    else if (code === 'Escape') toMenu();
+    else listKey(code, OVER_ITEMS);
+    return;
+  }
+
+  // countdown / play / scored
+  if (repeat) return;
+  if (code === 'KeyP' || code === 'Escape') pauseGame();
+  else if (code === 'KeyR') startMatch();
+}
+
+function menuKey(code, repeat) {
+  const rows = menuRows();
+  const idx = rows.indexOf(ui.menuRow);
+  if (UP_KEYS.includes(code)) {
+    ui.menuRow = rows[Math.max(0, idx - 1)];
+  } else if (DOWN_KEYS.includes(code)) {
+    ui.menuRow = rows[Math.min(rows.length - 1, idx + 1)];
+  } else if (LEFT_KEYS.includes(code) || RIGHT_KEYS.includes(code)) {
+    changeOption(ui.menuRow, LEFT_KEYS.includes(code) ? -1 : 1);
+  } else if (OK_KEYS.includes(code) && !repeat) {
+    if (ui.menuRow === 'start') startMatch();
+    else ui.menuRow = rows[idx + 1];
+  }
+}
+
+function changeOption(row, delta) {
+  const step = (list, cur) => list[Math.max(0, Math.min(list.length - 1, list.indexOf(cur) + delta))];
+  if (row === 'mode') setMode(step(['1p', '2p'], game.mode));
+  else if (row === 'difficulty') game.difficulty = step(AI_ORDER, game.difficulty);
+  else if (row === 'win') game.winScore = step(CONFIG.winScores, game.winScore);
+}
+
+function listKey(code, items) {
+  if (UP_KEYS.includes(code)) ui.listIndex = (ui.listIndex + items.length - 1) % items.length;
+  else if (DOWN_KEYS.includes(code)) ui.listIndex = (ui.listIndex + 1) % items.length;
+  else if (OK_KEYS.includes(code)) items[ui.listIndex].action();
+}
+
+/**
+ * 게임이 끝나는 지점. 나중에 포털로 점수를 보내는 코드를 여기에 붙인다.
+ * @param {{mode: '1p'|'2p', difficulty: string|null, winScore: number,
+ *          score: {left: number, right: number}, winner: 'left'|'right',
+ *          playerWon: boolean|null, longestRally: number, durationSec: number}} result
+ */
+function onGameOver(result) {
+  // TODO(portal): 포털 점수 전송. 지금은 비워둠
+}
+
+// 탭이 숨겨지면 자동 일시정지
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { pauseGame(); keys.clear(); }
+});
+
+// 테스트용 훅: index.html?debug 로 열었을 때만 노출
+if (/[?&]debug\b/.test(location.search)) {
+  window.PONG_DEBUG = { game, ball, paddles, ai, fx, CONFIG, AI_LEVELS, update, startMatch, serve, predictBallY, bounce };
+}
+
+// =====================================================================
+// 부트스트랩
+// =====================================================================
+
+document.body.style.background = THEME.letterbox;
+resize();
+focusGame();
+window.addEventListener('load', focusGame);
+
+let lastTime = performance.now();
+function frame(now) {
+  let dt = (now - lastTime) / 1000;
+  lastTime = now;
+  if (!(dt > 0)) dt = 0;
+  update(Math.min(dt, CONFIG.maxDt));
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

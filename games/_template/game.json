@@ -1,0 +1,25 @@
+{
+  "title": "MY GAME",
+  "description": {
+    "ko": "카드에 표시될 한 줄 설명",
+    "en": "One-line description shown on the card"
+  },
+  "about": {
+    "ko": "게임 페이지의 '게임 소개'에 표시될 긴 설명 (선택)",
+    "en": "Longer description for the game page (optional)"
+  },
+  "tags": ["action"],
+  "controls": [
+    { "action": { "ko": "이동", "en": "Move" }, "keys": "A / D" },
+    { "action": { "ko": "점프", "en": "Jump" }, "keys": "Space" }
+  ],
+  "input": { "keyboard": true, "touch": false },
+  "status": "live",
+  "featured": false,
+  "aspect": "16:9",
+  "version": "1.0.0",
+  "updated": "2026-10-28",
+  "changelog": [
+    { "version": "1.0.0", "date": "2026-10-28", "notes": { "ko": "첫 공개", "en": "First release" } }
+  ]
+}
